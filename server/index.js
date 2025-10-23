@@ -226,13 +226,25 @@ app.post("/api/ai", async (req, res) => {
   }
 });
 
+// ==================== SERVE FRONTEND (for Render) ====================
+const path = require('path');
+
+// Serve the React build folder
+app.use(express.static(path.join(__dirname, '../client/build')));
+
+// Any unknown route should return index.html (for React Router)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+});
+
 // ==================== SERVER START ====================
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`✅ Slip Game server running on port ${PORT}`);
   console.log(
-    `OpenAI API Key: ${
+    `🔑 OpenAI API Key: ${
       process.env.OPENAI_API_KEY ? "Configured" : "Not Configured (mock mode)"
     }`
   );
 });
+
