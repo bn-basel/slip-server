@@ -32,7 +32,7 @@ const Multiplayer: React.FC<MultiplayerProps> = ({ onBack }) => {
   const [waitingMessage, setWaitingMessage] = useState<string>('');
 
   useEffect(() => {
-    const newSocket = io('http://localhost:5000');
+    const newSocket = io("https://slip-server.onrender.com/api/ai");
     setSocket(newSocket);
 
     newSocket.on('joined-room', (data) => {

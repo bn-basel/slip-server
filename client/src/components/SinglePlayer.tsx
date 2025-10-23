@@ -57,7 +57,7 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack }) => {
       setConversationHistory(updatedHistory);
 
       // Call the AI API
-      const response = await fetch('http://localhost:5001/api/ai', {
+      const response = await fetch("https://slip-server.onrender.com/api/ai", {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
