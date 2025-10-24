@@ -4,7 +4,7 @@
   "description": "A question-based party game called Slip",
   "main": "server/index.js",
   "scripts": {
-    "render-build": "npm ci && npm --prefix server ci && npm --prefix client ci && npm --prefix client run build",
+    "render-build": "npm ci && npm --prefix client ci && npm --prefix client run build",
     "start": "node server/index.js",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "cd server && npm run dev",
@@ -16,6 +16,12 @@
   "license": "MIT",
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "openai": "^4.56.0"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
