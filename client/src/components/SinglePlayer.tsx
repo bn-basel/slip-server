@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 
 interface SinglePlayerProps {
   onBack: () => void;
+  sessionId: string;
+  onStartNewGame: () => void;
 }
 
 interface ConversationEntry {
@@ -16,7 +18,7 @@ interface AIResponse {
   nextQuestion: string;
 }
 
-const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack }) => {
+const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack, sessionId, onStartNewGame }) => {
   const [currentQuestion, setCurrentQuestion] = useState<string>('');
   const [userAnswer, setUserAnswer] = useState<string>('');
   const [verdict, setVerdict] = useState<string>('');
@@ -25,11 +27,19 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack }) => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [scoreChange, setScoreChange] = useState<number>(0);
   const [conversationHistory, setConversationHistory] = useState<ConversationEntry[]>([]);
-  const [sessionId] = useState<string>(() => Date.now().toString());
 
   const handleStartGame = async () => {
     try {
       setIsLoading(true);
+      // Generate a fresh session ID for this new game
+      onStartNewGame();
+      // Reset all game state to ensure fresh start
+      setConsistencyScore(100);
+      setVerdict('');
+      setCurrentQuestion('');
+      setUserAnswer('');
+      setScoreChange(0);
+      setConversationHistory([]);
       // Start with a simple question to begin the conversation
       setCurrentQuestion("What is your greatest fear?");
       setGameState('question');
@@ -57,7 +67,7 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack }) => {
       setConversationHistory(updatedHistory);
 
       // Call the AI API
-      const response = await fetch("https://slip-server.onrender.com/api/ai", {
+      const response = await fetch('http://localhost:5001/api/ai', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -131,34 +141,37 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-black">
       <div className="max-w-2xl w-full">
-        <div className="bg-white rounded-lg shadow-xl p-8">
+        <div className="bg-gray-900 rounded-lg shadow-xl p-8">
           <div className="flex justify-between items-center mb-6">
             <button
               onClick={onBack}
-              className="text-gray-500 hover:text-gray-700 transition-colors"
+              className="text-gray-400 hover:text-white transition-colors flex items-center"
             >
-              ← Back to Home
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back to Home
             </button>
-            <div className="text-lg font-semibold text-gray-700">
+            <div className="text-lg font-semibold text-white">
               Consistency: {consistencyScore}%
             </div>
           </div>
 
           {gameState === 'intro' && (
             <div className="text-center">
-              <h2 className="text-3xl font-bold text-gray-800 mb-6">
+              <h2 className="text-3xl font-bold text-white mb-6">
                 Welcome to Slip
               </h2>
-              <p className="text-gray-600 mb-8 text-lg">
+              <p className="text-gray-300 mb-8 text-lg">
                 An AI Judge will test your philosophical consistency. 
                 Your consistency score starts at 100% and decreases when you contradict yourself.
               </p>
               <button
                 onClick={handleStartGame}
                 disabled={isLoading}
-                className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-4 px-8 rounded-lg text-xl transition-colors duration-200"
+                className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-4 px-8 rounded-lg text-xl transition-colors duration-200 shadow-lg"
               >
                 {isLoading ? 'Starting...' : 'Start Game'}
               </button>
@@ -167,23 +180,26 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack }) => {
 
           {gameState === 'question' && (
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">
-                {currentQuestion}
+              <h2 className="text-2xl font-bold text-red-600 mb-6">
+                Question
               </h2>
+              <p className="text-white text-lg mb-8">
+                {currentQuestion}
+              </p>
               
               <div className="mb-6">
                 <textarea
                   value={userAnswer}
                   onChange={(e) => setUserAnswer(e.target.value)}
                   placeholder="Type your answer here..."
-                  className="w-full h-32 p-4 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full h-32 p-4 bg-gray-800 border border-gray-600 text-white rounded-lg resize-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder-gray-400"
                 />
               </div>
               
               <button
                 onClick={handleSubmitAnswer}
                 disabled={!userAnswer.trim() || isLoading}
-                className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200"
+                className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200 shadow-lg"
               >
                 {isLoading ? 'AI is judging...' : 'Submit Answer'}
               </button>
@@ -192,16 +208,16 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack }) => {
 
           {gameState === 'verdict' && (
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">
+              <h2 className="text-2xl font-bold text-red-600 mb-4">
                 AI Judge Verdict
               </h2>
               
-              <div className="bg-gray-100 rounded-lg p-6 mb-6">
+              <div className="bg-gray-800 rounded-lg p-6 mb-6">
                 <div className="mb-4">
                   <div className="flex justify-between items-center mb-2">
-                    <span className="font-semibold">Consistency Score:</span>
+                    <span className="font-semibold text-white">Consistency Score:</span>
                     <div className="flex items-center space-x-2">
-                      <span className="text-2xl font-bold text-gray-800">{consistencyScore}%</span>
+                      <span className="text-2xl font-bold text-white">{consistencyScore}%</span>
                       {scoreChange !== 0 && (
                         <span className={`text-lg font-semibold ${getScoreChangeColor(scoreChange)}`}>
                           {scoreChange > 0 ? '+' : ''}{scoreChange}
@@ -209,7 +225,7 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack }) => {
                       )}
                     </div>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-4">
+                  <div className="w-full bg-gray-700 rounded-full h-4">
                     <div 
                       className={`${getScoreColor(consistencyScore)} h-4 rounded-full transition-all duration-500`}
                       style={{ width: `${consistencyScore}%` }}
@@ -217,8 +233,8 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack }) => {
                   </div>
                 </div>
                 
-                <div className="bg-white rounded-lg p-4 mb-4">
-                  <p className="text-lg text-gray-700">
+                <div className="bg-gray-700 rounded-lg p-4 mb-4">
+                  <p className="text-lg text-white">
                     <strong>AI Judge:</strong> "{verdict}"
                   </p>
                 </div>
@@ -227,13 +243,13 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack }) => {
               <div className="space-x-4">
                 <button
                   onClick={handleNextQuestion}
-                  className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200"
+                  className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200 shadow-lg"
                 >
                   Continue
                 </button>
                 <button
                   onClick={onBack}
-                  className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200"
+                  className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200 shadow-lg"
                 >
                   End Game
                 </button>
@@ -247,15 +263,15 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack }) => {
                 Game Over
               </h2>
               
-              <div className="bg-red-50 rounded-lg p-6 mb-6">
-                <p className="text-xl text-red-800 mb-4">
+              <div className="bg-gray-800 rounded-lg p-6 mb-6">
+                <p className="text-xl text-red-400 mb-4">
                   You lost consistency!
                 </p>
-                <p className="text-lg text-gray-700 mb-4">
+                <p className="text-lg text-white mb-4">
                   <strong>Final Score:</strong> {consistencyScore}%
                 </p>
-                <div className="bg-white rounded-lg p-4">
-                  <p className="text-lg text-gray-700">
+                <div className="bg-gray-700 rounded-lg p-4">
+                  <p className="text-lg text-white">
                     <strong>AI Judge:</strong> "{verdict}"
                   </p>
                 </div>
@@ -264,13 +280,13 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack }) => {
               <div className="space-x-4">
                 <button
                   onClick={handleRestart}
-                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200"
+                  className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200 shadow-lg"
                 >
                   Play Again
                 </button>
                 <button
                   onClick={onBack}
-                  className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200"
+                  className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200 shadow-lg"
                 >
                   Back to Home
                 </button>
