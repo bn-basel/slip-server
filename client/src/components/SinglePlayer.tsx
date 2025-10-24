@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 
+// Dynamic API base URL based on environment
+const API_BASE_URL = process.env.NODE_ENV === "development" ? "http://localhost:5001" : "";
+
 interface SinglePlayerProps {
   onBack: () => void;
   sessionId: string;
@@ -67,7 +70,7 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack, sessionId, onStartN
       setConversationHistory(updatedHistory);
 
       // Call the AI API
-      const response = await fetch('http://localhost:5001/api/ai', {
+      const response = await fetch(`${API_BASE_URL}/api/ai`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
