@@ -5,27 +5,33 @@ import Settings from './components/Settings';
 import Modes from './components/Modes';
 import SinglePlayer from './components/SinglePlayer';
 import Multiplayer from './components/Multiplayer';
-import { v4 as uuidv4 } from 'uuid'; // ✅ Add this
+import { v4 as uuidv4 } from 'uuid';
 
 type GameMode = 'home' | 'rules' | 'settings' | 'modes' | 'single' | 'multiplayer';
 
 function App() {
   const [gameMode, setGameMode] = useState<GameMode>('home');
-  const [sessionId, setSessionId] = useState<string>(''); // ✅ Store session ID
+  const [sessionId, setSessionId] = useState<string>('');
 
-  // Generate a new session ID each time user enters single-player mode
+  // Initialize persistent sessionId from localStorage on app load
   useEffect(() => {
-    if (gameMode === 'single') {
-      const newId = uuidv4();
-      setSessionId(newId);
-      console.log('🎮 New Session Started:', newId);
+    const storedSessionId = localStorage.getItem('slip-session-id');
+    if (storedSessionId) {
+      setSessionId(storedSessionId);
+      console.log('🎮 Using existing session:', storedSessionId);
+    } else {
+      const newSessionId = uuidv4();
+      setSessionId(newSessionId);
+      localStorage.setItem('slip-session-id', newSessionId);
+      console.log('🎮 Created new persistent session:', newSessionId);
     }
-  }, [gameMode]);
+  }, []); // Only run once on app mount
 
   // Generate a fresh session ID when starting a new game
   const handleStartNewGame = () => {
     const newId = uuidv4();
     setSessionId(newId);
+    localStorage.setItem('slip-session-id', newId);
     console.log('🎮 Fresh Game Session:', newId);
   };
 
