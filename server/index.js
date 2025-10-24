@@ -216,6 +216,14 @@ if (!session) {
   }
 });
 
+// ==================== STATIC FILE SERVING ====================
+
+const path = require("path");
+app.use(express.static(path.join(__dirname, "../client/build")));
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "../client/build", "index.html"));
+});
+
 // ==================== SERVER START ====================
 
 const PORT = process.env.PORT || 5001;
