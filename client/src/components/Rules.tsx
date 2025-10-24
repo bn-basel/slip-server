@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface RulesProps {
   onBack: () => void;
@@ -6,24 +6,89 @@ interface RulesProps {
 }
 
 const Rules: React.FC<RulesProps> = ({ onBack, onContinue }) => {
+  const [titleGlow, setTitleGlow] = useState(false);
+  const [ruleVisible, setRuleVisible] = useState([false, false, false, false]);
+
+  // Trigger animation sequence when component mounts
+  useEffect(() => {
+    // Start title glow
+    setTitleGlow(true);
+    
+    // Start rule fade-in sequence after title glow
+    const timer1 = setTimeout(() => {
+      setTitleGlow(false);
+    }, 1000);
+
+    const timer2 = setTimeout(() => {
+      setRuleVisible([true, false, false, false]);
+    }, 1200);
+
+    const timer3 = setTimeout(() => {
+      setRuleVisible([true, true, false, false]);
+    }, 1400);
+
+    const timer4 = setTimeout(() => {
+      setRuleVisible([true, true, true, false]);
+    }, 1600);
+
+    const timer5 = setTimeout(() => {
+      setRuleVisible([true, true, true, true]);
+    }, 1800);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+      clearTimeout(timer4);
+      clearTimeout(timer5);
+    };
+  }, []);
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-black">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-black to-gray-900">
       <div className="max-w-2xl w-full text-center">
-        <h1 className="text-5xl font-bold text-red-600 mb-12">
+        <h1 
+          className={`text-5xl font-bold text-red-600 mb-12 transition-all duration-1000 ${
+            titleGlow ? 'text-shadow-red-glow' : ''
+          }`}
+          style={{
+            textShadow: titleGlow ? '0 0 20px rgba(255, 64, 64, 0.8), 0 0 40px rgba(255, 64, 64, 0.6)' : '0 0 10px rgba(255, 64, 64, 0.3)'
+          }}
+        >
           Rules!
         </h1>
         
         <div className="space-y-8 text-white text-lg">
-          <div className="bg-gray-900 rounded-lg p-6 shadow-lg">
+          <div 
+            className={`bg-gray-900 rounded-lg p-6 shadow-lg transition-all duration-500 ${
+              ruleVisible[0] ? 'opacity-100 transform translate-y-0' : 'opacity-0 transform translate-y-4'
+            }`}
+          >
             <p className="text-xl">Answer honestly.</p>
           </div>
           
-          <div className="bg-gray-900 rounded-lg p-6 shadow-lg">
+          <div 
+            className={`bg-gray-900 rounded-lg p-6 shadow-lg transition-all duration-500 ${
+              ruleVisible[1] ? 'opacity-100 transform translate-y-0' : 'opacity-0 transform translate-y-4'
+            }`}
+          >
             <p className="text-xl">Contradiction raises your score.</p>
           </div>
           
-          <div className="bg-gray-900 rounded-lg p-6 shadow-lg">
+          <div 
+            className={`bg-gray-900 rounded-lg p-6 shadow-lg transition-all duration-500 ${
+              ruleVisible[2] ? 'opacity-100 transform translate-y-0' : 'opacity-0 transform translate-y-4'
+            }`}
+          >
             <p className="text-xl">More votes leads to disqualification.</p>
+          </div>
+
+          <div 
+            className={`bg-gray-900 rounded-lg p-6 shadow-lg transition-all duration-500 ${
+              ruleVisible[3] ? 'opacity-100 transform translate-y-0' : 'opacity-0 transform translate-y-4'
+            }`}
+          >
+            <p className="text-xl">Better, more thoughtful answers allow for deeper analysis.</p>
           </div>
         </div>
         

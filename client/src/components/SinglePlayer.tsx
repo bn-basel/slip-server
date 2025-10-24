@@ -144,7 +144,7 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack, sessionId, onStartN
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-black">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-black to-gray-900">
       <div className="max-w-2xl w-full">
         <div className="bg-gray-900 rounded-lg shadow-xl p-8">
           <div className="flex justify-between items-center mb-6">
@@ -183,7 +183,12 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack, sessionId, onStartN
 
           {gameState === 'question' && (
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-red-600 mb-6">
+              <h2 
+                className="text-2xl font-bold text-red-600 mb-6"
+                style={{
+                  textShadow: '0 0 10px rgba(255, 64, 64, 0.4), 0 0 20px rgba(255, 64, 64, 0.2)'
+                }}
+              >
                 Question
               </h2>
               <p className="text-white text-lg mb-8">
@@ -211,7 +216,12 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack, sessionId, onStartN
 
           {gameState === 'verdict' && (
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-red-600 mb-4">
+              <h2 
+                className="text-2xl font-bold text-red-600 mb-4"
+                style={{
+                  textShadow: '0 0 10px rgba(255, 64, 64, 0.4), 0 0 20px rgba(255, 64, 64, 0.2)'
+                }}
+              >
                 AI Judge Verdict
               </h2>
               
@@ -262,7 +272,12 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack, sessionId, onStartN
 
           {gameState === 'game-over' && (
             <div className="text-center">
-              <h2 className="text-3xl font-bold text-red-600 mb-6">
+              <h2 
+                className="text-3xl font-bold text-red-600 mb-6"
+                style={{
+                  textShadow: '0 0 15px rgba(255, 64, 64, 0.5), 0 0 30px rgba(255, 64, 64, 0.3)'
+                }}
+              >
                 Game Over
               </h2>
               
