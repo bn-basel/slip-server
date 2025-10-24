@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 // Dynamic API base URL based on environment
 const API_BASE_URL = process.env.NODE_ENV === "development" ? "http://localhost:5001" : "";
@@ -22,6 +23,7 @@ interface AIResponse {
 }
 
 const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack, sessionId, onStartNewGame }) => {
+  const { t, language } = useLanguage();
   const [currentQuestion, setCurrentQuestion] = useState<string>('');
   const [userAnswer, setUserAnswer] = useState<string>('');
   const [verdict, setVerdict] = useState<string>('');
@@ -144,7 +146,7 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack, sessionId, onStartN
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-black to-gray-900">
+    <div className="min-h-screen flex items-center justify-center p-4">
       <div className="max-w-2xl w-full">
         <div className="bg-gray-900 rounded-lg shadow-xl p-8">
           <div className="flex justify-between items-center mb-6">
@@ -155,28 +157,32 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack, sessionId, onStartN
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              Back to Home
+              {t('back')}
             </button>
             <div className="text-lg font-semibold text-white">
-              Consistency: {consistencyScore}%
+              {t('consistencyScore')} {consistencyScore}%
             </div>
           </div>
 
           {gameState === 'intro' && (
             <div className="text-center">
               <h2 className="text-3xl font-bold text-white mb-6">
-                Welcome to Slip
+                {t('welcome')}
               </h2>
+              {language === 'ar' && (
+                <p className="text-red-400 mb-4 text-lg font-semibold">
+                  {t('answerInEnglish')}
+                </p>
+              )}
               <p className="text-gray-300 mb-8 text-lg">
-                An AI Judge will test your philosophical consistency. 
-                Your consistency score starts at 100% and decreases when you contradict yourself.
+                {t('gameDescription')}
               </p>
               <button
                 onClick={handleStartGame}
                 disabled={isLoading}
-                className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-4 px-8 rounded-lg text-xl transition-colors duration-200 shadow-lg"
+                className={`${isLoading ? 'bg-gray-500 cursor-not-allowed' : 'liquid-hover bg-gray-700'} text-white font-bold py-4 px-8 rounded-lg text-xl shadow-lg`}
               >
-                {isLoading ? 'Starting...' : 'Start Game'}
+{isLoading ? t('starting') : t('startGame')}
               </button>
             </div>
           )}
@@ -189,7 +195,7 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack, sessionId, onStartN
                   textShadow: '0 0 10px rgba(255, 64, 64, 0.4), 0 0 20px rgba(255, 64, 64, 0.2)'
                 }}
               >
-                Question
+                {t('question')}
               </h2>
               <p className="text-white text-lg mb-8">
                 {currentQuestion}
@@ -199,7 +205,7 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack, sessionId, onStartN
                 <textarea
                   value={userAnswer}
                   onChange={(e) => setUserAnswer(e.target.value)}
-                  placeholder="Type your answer here..."
+                  placeholder={t('typeAnswer')}
                   className="w-full h-32 p-4 bg-gray-800 border border-gray-600 text-white rounded-lg resize-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder-gray-400"
                 />
               </div>
@@ -207,9 +213,9 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack, sessionId, onStartN
               <button
                 onClick={handleSubmitAnswer}
                 disabled={!userAnswer.trim() || isLoading}
-                className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200 shadow-lg"
+                className={`${(!userAnswer.trim() || isLoading) ? 'bg-gray-500 cursor-not-allowed' : 'liquid-hover bg-gray-700'} text-white font-bold py-3 px-6 rounded-lg shadow-lg`}
               >
-                {isLoading ? 'AI is judging...' : 'Submit Answer'}
+{isLoading ? t('aiJudging') : t('submitAnswer')}
               </button>
             </div>
           )}
@@ -222,13 +228,13 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack, sessionId, onStartN
                   textShadow: '0 0 10px rgba(255, 64, 64, 0.4), 0 0 20px rgba(255, 64, 64, 0.2)'
                 }}
               >
-                AI Judge Verdict
+                {t('aiJudgeVerdict')}
               </h2>
               
               <div className="bg-gray-800 rounded-lg p-6 mb-6">
                 <div className="mb-4">
                   <div className="flex justify-between items-center mb-2">
-                    <span className="font-semibold text-white">Consistency Score:</span>
+                    <span className="font-semibold text-white">{t('consistencyScore')}</span>
                     <div className="flex items-center space-x-2">
                       <span className="text-2xl font-bold text-white">{consistencyScore}%</span>
                       {scoreChange !== 0 && (
@@ -248,7 +254,7 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack, sessionId, onStartN
                 
                 <div className="bg-gray-700 rounded-lg p-4 mb-4">
                   <p className="text-lg text-white">
-                    <strong>AI Judge:</strong> "{verdict}"
+                    <strong>{t('aiJudge')}</strong> "{verdict}"
                   </p>
                 </div>
               </div>
@@ -256,15 +262,15 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack, sessionId, onStartN
               <div className="space-x-4">
                 <button
                   onClick={handleNextQuestion}
-                  className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200 shadow-lg"
+                  className="liquid-hover bg-gray-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg"
                 >
-                  Continue
+{t('continue')}
                 </button>
                 <button
                   onClick={onBack}
-                  className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200 shadow-lg"
+                  className="liquid-hover bg-gray-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg"
                 >
-                  End Game
+{t('endGame')}
                 </button>
               </div>
             </div>
@@ -278,19 +284,19 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack, sessionId, onStartN
                   textShadow: '0 0 15px rgba(255, 64, 64, 0.5), 0 0 30px rgba(255, 64, 64, 0.3)'
                 }}
               >
-                Game Over
+                {t('gameOver')}
               </h2>
               
               <div className="bg-gray-800 rounded-lg p-6 mb-6">
                 <p className="text-xl text-red-400 mb-4">
-                  You lost consistency!
+                  {t('lostConsistency')}
                 </p>
                 <p className="text-lg text-white mb-4">
-                  <strong>Final Score:</strong> {consistencyScore}%
+                  <strong>{t('finalScore')}</strong> {consistencyScore}%
                 </p>
                 <div className="bg-gray-700 rounded-lg p-4">
                   <p className="text-lg text-white">
-                    <strong>AI Judge:</strong> "{verdict}"
+                    <strong>{t('aiJudge')}</strong> "{verdict}"
                   </p>
                 </div>
               </div>
@@ -298,15 +304,15 @@ const SinglePlayer: React.FC<SinglePlayerProps> = ({ onBack, sessionId, onStartN
               <div className="space-x-4">
                 <button
                   onClick={handleRestart}
-                  className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200 shadow-lg"
+                  className="liquid-hover bg-gray-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg"
                 >
-                  Play Again
+{t('playAgain')}
                 </button>
                 <button
                   onClick={onBack}
-                  className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200 shadow-lg"
+                  className="liquid-hover bg-gray-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg"
                 >
-                  Back to Home
+{t('back')}
                 </button>
               </div>
             </div>

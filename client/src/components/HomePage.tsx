@@ -1,36 +1,55 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface HomePageProps {
   onNavigate: (page: 'rules' | 'settings') => void;
 }
 
 const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
+  const { t } = useLanguage();
+  const [isHovering, setIsHovering] = useState(false);
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-black to-gray-900">
-      <div className="max-w-2xl w-full text-center">
-        <h1 
-          className="text-6xl font-bold text-red-600 mb-12"
+    <div className="min-h-screen flex items-center justify-center p-4 relative">
+
+      <div className="max-w-2xl w-full text-center relative z-10">
+        <motion.h1 
+          className="text-6xl font-bold text-red-600 mb-12 cursor-pointer"
           style={{
-            textShadow: '0 0 15px rgba(255, 64, 64, 0.5), 0 0 30px rgba(255, 64, 64, 0.3)'
+            textShadow: isHovering 
+              ? '0 0 25px rgba(255, 64, 64, 0.8), 0 0 50px rgba(255, 64, 64, 0.6)'
+              : '0 0 15px rgba(255, 64, 64, 0.5), 0 0 30px rgba(255, 64, 64, 0.3)'
+          }}
+          onMouseEnter={() => setIsHovering(true)}
+          onMouseLeave={() => setIsHovering(false)}
+          animate={{
+            scale: isHovering ? 1.05 : 1,
+          }}
+          transition={{
+            duration: 0.3,
+            ease: "easeOut"
           }}
         >
-          The Slip
-        </h1>
+          {t('appTitle')}
+        </motion.h1>
         
         <div className="space-y-6">
-          <button
+          <motion.button
             onClick={() => onNavigate('rules')}
-            className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-4 px-8 rounded-lg text-xl transition-colors duration-200 shadow-lg"
+            className="w-full liquid-hover bg-gray-700 text-white font-bold py-4 px-8 rounded-lg text-xl shadow-lg"
+            whileTap={{ scale: 0.98 }}
           >
-            Start
-          </button>
+            <span>{t('start')}</span>
+          </motion.button>
           
-          <button
+          <motion.button
             onClick={() => onNavigate('settings')}
-            className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-4 px-8 rounded-lg text-xl transition-colors duration-200 shadow-lg"
+            className="w-full liquid-hover bg-gray-700 text-white font-bold py-4 px-8 rounded-lg text-xl shadow-lg"
+            whileTap={{ scale: 0.98 }}
           >
-            Settings
-          </button>
+            <span>{t('settings')}</span>
+          </motion.button>
         </div>
       </div>
     </div>

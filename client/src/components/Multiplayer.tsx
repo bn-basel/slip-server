@@ -1,27 +1,33 @@
 import React from 'react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface MultiplayerProps {
   onBack: () => void;
 }
 
 const Multiplayer: React.FC<MultiplayerProps> = ({ onBack }) => {
+  const { t } = useLanguage();
+  
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center p-4">
       <div className="max-w-2xl w-full">
-        <div className="bg-white rounded-lg shadow-xl p-8 text-center">
-          <h2 className="text-3xl font-bold text-gray-800 mb-6">
-            Multiplayer Mode
+        <div className="bg-gray-900 rounded-lg shadow-xl p-8 text-center">
+          <h2 className="text-3xl font-bold text-red-600 mb-6"
+              style={{
+                textShadow: '0 0 15px rgba(255, 64, 64, 0.5), 0 0 30px rgba(255, 64, 64, 0.3)'
+              }}>
+            {t('multiplayerMode')}
           </h2>
           
-          <p className="text-lg text-gray-600 mb-8">
-            Multiplayer functionality is coming soon! This will allow multiple players to compete in consistency challenges.
+          <p className="text-lg text-gray-300 mb-8">
+            {t('multiplayerDescription')}
           </p>
           
           <button
             onClick={onBack}
-            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-lg text-xl transition-colors duration-200"
+            className="liquid-hover bg-gray-700 text-white font-bold py-4 px-8 rounded-lg text-xl shadow-lg"
           >
-            Back to Home
+            {t('back')}
           </button>
         </div>
       </div>

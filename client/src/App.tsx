@@ -5,6 +5,8 @@ import Settings from './components/Settings';
 import Modes from './components/Modes';
 import SinglePlayer from './components/SinglePlayer';
 import Multiplayer from './components/Multiplayer';
+import Background from './components/Background';
+import { LanguageProvider } from './contexts/LanguageContext';
 import { v4 as uuidv4 } from 'uuid';
 
 type GameMode = 'home' | 'rules' | 'settings' | 'modes' | 'single' | 'multiplayer';
@@ -54,9 +56,12 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-black to-gray-900">
-      {renderContent()}
-    </div>
+    <LanguageProvider>
+      <div className="min-h-screen bg-gradient-to-b from-black to-gray-900 relative">
+        <Background />
+        {renderContent()}
+      </div>
+    </LanguageProvider>
   );
 }
 
