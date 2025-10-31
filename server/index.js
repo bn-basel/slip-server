@@ -6,10 +6,40 @@ const OpenAI = require("openai");
 require("dotenv").config();
 
 const app = express();
+
+// Configure CORS to allow requests from production and development origins
+const allowedOrigins = [
+  'https://the-slip.onrender.com',
+  'http://localhost:3000',
+  'http://localhost:3001', // Common dev port alternative
+  process.env.CLIENT_ORIGIN, // Allow custom origin from env
+].filter(Boolean); // Remove undefined values
+
+console.log('[SERVER] Allowed CORS origins:', allowedOrigins);
+
 app.use(
   cors({
-    origin: process.env.CLIENT_ORIGIN || true,
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps, Postman, or curl)
+      if (!origin) return callback(null, true);
+      
+      // Check if origin is in allowed list
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        // In development, allow any origin for easier testing
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[SERVER] Development mode: allowing origin', origin);
+          callback(null, true);
+        } else {
+          console.warn('[SERVER] Blocked CORS request from:', origin);
+          callback(new Error('Not allowed by CORS'));
+        }
+      }
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
 app.use(express.json());
@@ -313,16 +343,44 @@ setInterval(() => {
 
 // Create HTTP server and bind Socket.IO
 const server = http.createServer(app);
+
+// Configure Socket.IO CORS to match Express CORS
+// Socket.IO accepts string, array of strings, or function for origin
+const socketIoAllowedOrigins = [
+  'https://the-slip.onrender.com',
+  'http://localhost:3000',
+  'http://localhost:3001',
+  process.env.CLIENT_ORIGIN,
+].filter(Boolean);
+
+console.log('[SERVER] Socket.IO allowed origins:', socketIoAllowedOrigins);
+
+// In production, use strict origin list; in development, allow all
+const socketIoOriginConfig = process.env.NODE_ENV === 'production' 
+  ? socketIoAllowedOrigins 
+  : (origin, callback) => {
+      // In development, allow all origins for easier testing
+      callback(null, true);
+    };
+
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_ORIGIN || true,
+    origin: socketIoOriginConfig,
     methods: ["GET", "POST"],
     credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization'],
   },
+  transports: ['websocket', 'polling'], // Allow both transports
+  allowEIO3: true, // Allow Engine.IO v3 clients for compatibility
 });
 
 io.on("connection", (socket) => {
-  console.log(`[SOCKET] Connected ${socket.id}`);
+  const clientOrigin = socket.handshake.headers.origin || 'unknown';
+  const clientAddress = socket.handshake.address || 'unknown';
+  console.log(`[SOCKET] ✅ New connection from ${clientOrigin}`);
+  console.log(`[SOCKET] Socket ID: ${socket.id}`);
+  console.log(`[SOCKET] Client address: ${clientAddress}`);
+  console.log(`[SOCKET] Transport: ${socket.conn.transport.name}`);
 
   function emitError(message) {
     socket.emit("room:error", { message });
@@ -407,12 +465,18 @@ io.on("connection", (socket) => {
     io.to(room.code).emit("room:started", { code: room.code });
   });
 
-  socket.on("disconnect", () => {
+  socket.on("disconnect", (reason) => {
     const code = removePlayerFromRooms(socket.id);
     if (code) {
       io.to(code).emit("room:state", getRoomState(code));
     }
-    console.log(`[SOCKET] Disconnected ${socket.id}`);
+    console.log(`[SOCKET] ❌ Disconnected ${socket.id}`);
+    console.log(`[SOCKET] Disconnect reason: ${reason}`);
+  });
+
+  // Log connection errors
+  socket.on("error", (error) => {
+    console.error(`[SOCKET] ❌ Error for socket ${socket.id}:`, error);
   });
 });
 
@@ -429,9 +493,12 @@ app.get("*", (req, res) => {
 const PORT = process.env.PORT || 5001;
 server.listen(PORT, () => {
   console.log(`✅ Slip Game server running on port ${PORT}`);
+  console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔗 Client Origin: ${process.env.CLIENT_ORIGIN || 'Not set (using defaults)'}`);
   console.log(
     `🔑 OpenAI API Key: ${
       process.env.OPENAI_API_KEY ? "Configured" : "Not Configured (mock mode)"
     }`
   );
+  console.log(`📡 Socket.IO server ready for connections`);
 });
