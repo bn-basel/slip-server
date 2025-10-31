@@ -10,7 +10,7 @@ import { LanguageProvider } from './contexts/LanguageContext';
 import { v4 as uuidv4 } from 'uuid';
 
 type GameMode = 'home' | 'rules' | 'settings' | 'modes' | 'single' | 'multiplayer';
-
+console.log("Party Mode build deployed!");
 function App() {
   const [gameMode, setGameMode] = useState<GameMode>('home');
   const [sessionId, setSessionId] = useState<string>('');
