@@ -4,7 +4,7 @@ import Rules from './components/Rules';
 import Settings from './components/Settings';
 import Modes from './components/Modes';
 import SinglePlayer from './components/SinglePlayer';
-import Multiplayer from './components/Multiplayer';
+import PartyMode from './party/PartyMode';
 import Background from './components/Background';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { v4 as uuidv4 } from 'uuid';
@@ -49,7 +49,7 @@ function App() {
         // ✅ Pass sessionId and startNewGame function to SinglePlayer component
         return <SinglePlayer sessionId={sessionId} onBack={() => setGameMode('home')} onStartNewGame={handleStartNewGame} />;
       case 'multiplayer':
-        return <Multiplayer onBack={() => setGameMode('home')} />;
+        return <PartyMode onBack={() => setGameMode('home')} />;
       default:
         return <HomePage onNavigate={setGameMode} />;
     }

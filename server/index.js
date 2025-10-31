@@ -1,10 +1,17 @@
 const express = require("express");
 const cors = require("cors");
+const http = require("http");
+const { Server } = require("socket.io");
 const OpenAI = require("openai");
 require("dotenv").config();
 
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin: process.env.CLIENT_ORIGIN || true,
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 const openai = process.env.OPENAI_API_KEY
@@ -229,6 +236,155 @@ if (!session) {
   }
 });
 
+// ==================== PARTY MODE (Socket.IO) ====================
+
+// In-memory rooms store
+// Room shape: {
+//   code, createdAt, started, players: [{id, name, ready, isHost}], updatedAt
+// }
+const rooms = new Map();
+
+const MAX_PLAYERS = 6;
+const ROOM_TTL_MS = 60 * 60 * 1000; // 1 hour
+const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Excludes I,O,0,1
+
+function generateRoomCode() {
+  let code = "";
+  for (let i = 0; i < 5; i++) {
+    code += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+  }
+  return code;
+}
+
+function createRoom() {
+  let code;
+  do {
+    code = generateRoomCode();
+  } while (rooms.has(code));
+  const room = { code, createdAt: Date.now(), updatedAt: Date.now(), started: false, players: [] };
+  rooms.set(code, room);
+  return room;
+}
+
+function getRoomState(code) {
+  const room = rooms.get(code);
+  if (!room) return null;
+  return {
+    code: room.code,
+    createdAt: room.createdAt,
+    started: room.started,
+    players: room.players.map((p) => ({ id: p.id, name: p.name, ready: p.ready, isHost: p.isHost })),
+  };
+}
+
+function assignNewHost(room) {
+  const candidate = room.players[0];
+  if (candidate) candidate.isHost = true;
+}
+
+function removePlayerFromRooms(socketId) {
+  for (const room of rooms.values()) {
+    const idx = room.players.findIndex((p) => p.id === socketId);
+    if (idx !== -1) {
+      const wasHost = room.players[idx].isHost;
+      room.players.splice(idx, 1);
+      if (wasHost && room.players.length > 0) assignNewHost(room);
+      room.updatedAt = Date.now();
+      if (room.players.length === 0) {
+        rooms.delete(room.code);
+        console.log(`[ROOM] Deleted empty room ${room.code}`);
+      }
+      return room.code;
+    }
+  }
+  return null;
+}
+
+// Periodic cleanup of expired rooms
+setInterval(() => {
+  const now = Date.now();
+  for (const [code, room] of rooms.entries()) {
+    if (now - room.updatedAt > ROOM_TTL_MS || room.players.length === 0) {
+      rooms.delete(code);
+      console.log(`[ROOM] Expired/empty room cleaned up: ${code}`);
+    }
+  }
+}, 60 * 1000);
+
+// Create HTTP server and bind Socket.IO
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CLIENT_ORIGIN || true,
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
+
+io.on("connection", (socket) => {
+  console.log(`[SOCKET] Connected ${socket.id}`);
+
+  function emitError(message) {
+    socket.emit("room:error", { message });
+  }
+
+  socket.on("room:create", ({ name }) => {
+    const room = createRoom();
+    const player = { id: socket.id, name: name?.trim() || "Player", ready: false, isHost: true };
+    room.players.push(player);
+    room.updatedAt = Date.now();
+    socket.join(room.code);
+    console.log(`[ROOM] Created ${room.code} by ${socket.id}`);
+    io.to(room.code).emit("room:state", getRoomState(room.code));
+  });
+
+  socket.on("room:join", ({ code, name }) => {
+    const room = rooms.get((code || "").toUpperCase());
+    if (!room) return emitError("Room not found");
+    if (room.started) return emitError("Game already started");
+    if (room.players.length >= MAX_PLAYERS) return emitError("Room full");
+    if (room.players.find((p) => p.id === socket.id)) return emitError("Already in room");
+    const player = { id: socket.id, name: name?.trim() || "Player", ready: false, isHost: false };
+    room.players.push(player);
+    room.updatedAt = Date.now();
+    socket.join(room.code);
+    console.log(`[ROOM] ${socket.id} joined ${room.code}`);
+    io.to(room.code).emit("room:state", getRoomState(room.code));
+  });
+
+  socket.on("room:setReady", ({ code, ready }) => {
+    const room = rooms.get((code || "").toUpperCase());
+    if (!room) return emitError("Room not found");
+    const player = room.players.find((p) => p.id === socket.id);
+    if (!player) return emitError("Player not in room");
+    player.ready = !!ready;
+    room.updatedAt = Date.now();
+    io.to(room.code).emit("room:state", getRoomState(room.code));
+  });
+
+  socket.on("room:start", ({ code }) => {
+    const room = rooms.get((code || "").toUpperCase());
+    if (!room) return emitError("Room not found");
+    const player = room.players.find((p) => p.id === socket.id);
+    if (!player || !player.isHost) return emitError("Only host can start");
+    if (room.players.length < 2) return emitError("Need at least 2 players");
+    if (!room.players.every((p) => p.ready)) return emitError("All players must be ready");
+    room.started = true;
+    room.updatedAt = Date.now();
+    console.log(`[ROOM] ${room.code} started by host ${socket.id}`);
+    io.to(room.code).emit("room:state", getRoomState(room.code));
+    io.to(room.code).emit("room:started", { code: room.code });
+  });
+
+  socket.on("disconnect", () => {
+    const code = removePlayerFromRooms(socket.id);
+    if (code) {
+      io.to(code).emit("room:state", getRoomState(code));
+    }
+    console.log(`[SOCKET] Disconnected ${socket.id}`);
+  });
+});
+
 // ==================== STATIC FILE SERVING ====================
 
 const path = require("path");
@@ -240,7 +396,7 @@ app.get("*", (req, res) => {
 // ==================== SERVER START ====================
 
 const PORT = process.env.PORT || 5001;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`✅ Slip Game server running on port ${PORT}`);
   console.log(
     `🔑 OpenAI API Key: ${
