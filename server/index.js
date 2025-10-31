@@ -329,27 +329,58 @@ io.on("connection", (socket) => {
   }
 
   socket.on("room:create", ({ name }) => {
-    const room = createRoom();
-    const player = { id: socket.id, name: name?.trim() || "Player", ready: false, isHost: true };
-    room.players.push(player);
-    room.updatedAt = Date.now();
-    socket.join(room.code);
-    console.log(`[ROOM] Created ${room.code} by ${socket.id}`);
-    io.to(room.code).emit("room:state", getRoomState(room.code));
+    try {
+      const room = createRoom();
+      const player = { id: socket.id, name: name?.trim() || "Player", ready: false, isHost: true };
+      room.players.push(player);
+      room.updatedAt = Date.now();
+      socket.join(room.code);
+      console.log(`[ROOM] Created ${room.code} by ${socket.id} (${name?.trim() || "Player"})`);
+      
+      // Emit room state to all players in the room (including creator)
+      const roomState = getRoomState(room.code);
+      io.to(room.code).emit("room:state", roomState);
+      console.log(`[ROOM] Sent room state for ${room.code}:`, roomState);
+    } catch (err) {
+      console.error("[ROOM] Error creating room:", err);
+      emitError("Failed to create room. Please try again.");
+    }
   });
 
   socket.on("room:join", ({ code, name }) => {
-    const room = rooms.get((code || "").toUpperCase());
-    if (!room) return emitError("Room not found");
-    if (room.started) return emitError("Game already started");
-    if (room.players.length >= MAX_PLAYERS) return emitError("Room full");
-    if (room.players.find((p) => p.id === socket.id)) return emitError("Already in room");
-    const player = { id: socket.id, name: name?.trim() || "Player", ready: false, isHost: false };
-    room.players.push(player);
-    room.updatedAt = Date.now();
-    socket.join(room.code);
-    console.log(`[ROOM] ${socket.id} joined ${room.code}`);
-    io.to(room.code).emit("room:state", getRoomState(room.code));
+    try {
+      const roomCode = (code || "").toUpperCase();
+      const room = rooms.get(roomCode);
+      if (!room) {
+        console.log(`[ROOM] Join failed: Room ${roomCode} not found`);
+        return emitError("Room not found");
+      }
+      if (room.started) {
+        console.log(`[ROOM] Join failed: Room ${roomCode} already started`);
+        return emitError("Game already started");
+      }
+      if (room.players.length >= MAX_PLAYERS) {
+        console.log(`[ROOM] Join failed: Room ${roomCode} is full`);
+        return emitError("Room full");
+      }
+      if (room.players.find((p) => p.id === socket.id)) {
+        console.log(`[ROOM] Join failed: ${socket.id} already in room ${roomCode}`);
+        return emitError("Already in room");
+      }
+      const player = { id: socket.id, name: name?.trim() || "Player", ready: false, isHost: false };
+      room.players.push(player);
+      room.updatedAt = Date.now();
+      socket.join(room.code);
+      console.log(`[ROOM] ${socket.id} (${name?.trim() || "Player"}) joined ${room.code}`);
+      
+      // Emit updated room state to all players in the room
+      const roomState = getRoomState(room.code);
+      io.to(room.code).emit("room:state", roomState);
+      console.log(`[ROOM] Sent updated room state for ${room.code}:`, roomState);
+    } catch (err) {
+      console.error("[ROOM] Error joining room:", err);
+      emitError("Failed to join room. Please try again.");
+    }
   });
 
   socket.on("room:setReady", ({ code, ready }) => {

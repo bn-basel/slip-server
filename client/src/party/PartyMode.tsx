@@ -29,18 +29,45 @@ const PartyMode: React.FC<PartyModeProps> = ({ onBack }) => {
   const [joinCode, setJoinCode] = useState('');
   const [room, setRoom] = useState<RoomState>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+
+  // Track socket connection status
+  useEffect(() => {
+    function onConnect() {
+      setIsConnected(true);
+      console.log('[PARTY MODE] Socket connected:', socket.id);
+    }
+    function onDisconnect() {
+      setIsConnected(false);
+      console.log('[PARTY MODE] Socket disconnected');
+    }
+    
+    // Check initial connection status
+    setIsConnected(socket.connected);
+    
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    
+    return () => {
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+    };
+  }, [socket]);
+
+  // Get current socket ID safely (may be undefined if not connected)
+  const socketId = useMemo(() => socket.id || null, [socket.id, isConnected]);
 
   const isHost = useMemo(() => {
-    if (!room) return false;
-    const me = room.players.find(p => p.id === socket.id);
+    if (!room || !socketId) return false;
+    const me = room.players.find(p => p.id === socketId);
     return !!me?.isHost;
-  }, [room, socket.id]);
+  }, [room, socketId]);
 
   const iAmReady = useMemo(() => {
-    if (!room) return false;
-    const me = room.players.find(p => p.id === socket.id);
+    if (!room || !socketId) return false;
+    const me = room.players.find(p => p.id === socketId);
     return !!me?.ready;
-  }, [room, socket.id]);
+  }, [room, socketId]);
 
   const allReady = useMemo(() => {
     if (!room) return false;
@@ -48,8 +75,10 @@ const PartyMode: React.FC<PartyModeProps> = ({ onBack }) => {
     return room.players.every(p => p.ready);
   }, [room]);
 
+  // Set up socket event listeners for room state updates
   useEffect(() => {
     function onState(next: RoomState) {
+      console.log('[PARTY MODE] Room state received:', next);
       setRoom(next);
       setError(null);
       if (next?.started) {
@@ -59,14 +88,18 @@ const PartyMode: React.FC<PartyModeProps> = ({ onBack }) => {
       }
     }
     function onError(payload: { message: string }) {
+      console.error('[PARTY MODE] Room error:', payload?.message);
       setError(payload?.message || 'Unknown error');
     }
     function onStarted() {
+      console.log('[PARTY MODE] Game started');
       setPhase('started');
     }
+    
     socket.on('room:state', onState);
     socket.on('room:error', onError);
     socket.on('room:started', onStarted);
+    
     return () => {
       socket.off('room:state', onState);
       socket.off('room:error', onError);
@@ -75,25 +108,45 @@ const PartyMode: React.FC<PartyModeProps> = ({ onBack }) => {
   }, [socket]);
 
   function handleCreate() {
+    if (!isConnected) {
+      setError('Not connected to server. Please wait...');
+      return;
+    }
+    if (!name.trim()) {
+      setError('Please enter a display name');
+      return;
+    }
+    console.log('[PARTY MODE] Creating room with name:', name.trim());
     socket.emit('room:create', { name: name.trim() || 'Player' });
   }
 
   function handleJoin() {
+    if (!isConnected) {
+      setError('Not connected to server. Please wait...');
+      return;
+    }
+    if (!name.trim()) {
+      setError('Please enter a display name');
+      return;
+    }
     const code = joinCode.trim().toUpperCase();
     if (code.length !== 5) {
       setError('Enter a valid 5-character code');
       return;
     }
+    console.log('[PARTY MODE] Joining room:', code, 'with name:', name.trim());
     socket.emit('room:join', { code, name: name.trim() || 'Player' });
   }
 
   function toggleReady() {
-    if (!room) return;
+    if (!room || !isConnected) return;
+    console.log('[PARTY MODE] Toggling ready status');
     socket.emit('room:setReady', { code: room.code, ready: !iAmReady });
   }
 
   function startGame() {
-    if (!room) return;
+    if (!room || !isConnected) return;
+    console.log('[PARTY MODE] Starting game');
     socket.emit('room:start', { code: room.code });
   }
 
@@ -113,6 +166,15 @@ const PartyMode: React.FC<PartyModeProps> = ({ onBack }) => {
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="max-w-2xl w-full">
         <div className="bg-gray-900 rounded-lg shadow-xl p-8 text-center">
+          {/* Connection status indicator */}
+          <div className="mb-4 text-sm">
+            {isConnected ? (
+              <span className="text-green-400">● Connected</span>
+            ) : (
+              <span className="text-yellow-400">● Connecting...</span>
+            )}
+          </div>
+
           {phase === 'menu' && (
             <>
               <h2 className="text-3xl font-bold text-red-600 mb-6">Party Mode</h2>
@@ -127,7 +189,15 @@ const PartyMode: React.FC<PartyModeProps> = ({ onBack }) => {
               </div>
               {error && <div className="text-red-400 mb-4">{error}</div>}
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <button onClick={handleCreate} className="liquid-hover bg-gray-700 text-white font-bold py-3 px-6 rounded-lg">
+                <button 
+                  onClick={handleCreate} 
+                  disabled={!isConnected}
+                  className={`liquid-hover font-bold py-3 px-6 rounded-lg ${
+                    isConnected 
+                      ? 'bg-gray-700 text-white' 
+                      : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
                   Create Room
                 </button>
                 <div className="flex items-center gap-2">
@@ -138,7 +208,15 @@ const PartyMode: React.FC<PartyModeProps> = ({ onBack }) => {
                     maxLength={5}
                     className="bg-gray-800 text-white rounded px-4 py-3 w-28 tracking-widest text-center"
                   />
-                  <button onClick={handleJoin} className="liquid-hover bg-gray-700 text-white font-bold py-3 px-6 rounded-lg">
+                  <button 
+                    onClick={handleJoin} 
+                    disabled={!isConnected}
+                    className={`liquid-hover font-bold py-3 px-6 rounded-lg ${
+                      isConnected 
+                        ? 'bg-gray-700 text-white' 
+                        : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
                     Join
                   </button>
                 </div>
