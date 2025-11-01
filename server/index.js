@@ -388,6 +388,8 @@ const io = new Server(server, {
 });
 
 console.log('[SERVER] Socket.IO server initialized with transports: ["polling", "websocket"]');
+console.log('[SERVER] Socket.IO will handle all requests to /socket.io/*');
+console.log('[SERVER] Express static/catch-all routes exclude /socket.io paths');
 
 io.on("connection", (socket) => {
   const clientOrigin = socket.handshake.headers.origin || 'unknown';
@@ -540,8 +542,31 @@ io.on("connection", (socket) => {
 // ==================== STATIC FILE SERVING ====================
 
 const path = require("path");
-app.use(express.static(path.join(__dirname, "../client/build")));
-app.get("*", (req, res) => {
+
+// Serve static files (but exclude Socket.IO paths)
+// CRITICAL: Socket.IO requests must NOT be handled by Express middleware
+const staticMiddleware = express.static(path.join(__dirname, "../client/build"));
+app.use((req, res, next) => {
+  // Skip Socket.IO requests - they're handled by the Socket.IO server attached to the HTTP server
+  if (req.path.startsWith("/socket.io")) {
+    return next(); // Pass to next middleware (but Socket.IO will intercept at HTTP server level)
+  }
+  staticMiddleware(req, res, next);
+});
+
+// Catch-all route for React SPA (but exclude Socket.IO paths)
+// CRITICAL: This must NOT intercept /socket.io requests
+app.get("*", (req, res, next) => {
+  // Don't handle Socket.IO requests - they're handled by Socket.IO server
+  // Socket.IO intercepts these at the HTTP server level, before Express routes
+  // If a Socket.IO request reaches here, something is misconfigured
+  if (req.path.startsWith("/socket.io")) {
+    console.error(`[SERVER] ❌ ERROR: Socket.IO request reached Express catch-all: ${req.path}`);
+    console.error(`[SERVER] This should not happen - Socket.IO should intercept before Express`);
+    // Don't send a response - let Socket.IO handle it (or return 404)
+    // Actually, if we're here, Socket.IO didn't handle it, so return 404
+    return res.status(404).json({ error: "Socket.IO endpoint not found" });
+  }
   res.sendFile(path.join(__dirname, "../client/build", "index.html"));
 });
 
