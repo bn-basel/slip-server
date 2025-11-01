@@ -9,7 +9,7 @@ const app = express();
 
 // Configure CORS to allow requests from production and development origins
 const allowedOrigins = [
-  'https://the-slip.onrender.com',
+  'https://slip-server-1.onrender.com',
   'http://localhost:3000',
   'http://localhost:3001', // Common dev port alternative
   process.env.CLIENT_ORIGIN, // Allow custom origin from env
@@ -347,7 +347,7 @@ const server = http.createServer(app);
 // Configure Socket.IO CORS to match Express CORS
 // Socket.IO accepts string, array of strings, or function for origin
 const socketIoAllowedOrigins = [
-  'https://the-slip.onrender.com',
+  'https://slip-server-1.onrender.com',
   'http://localhost:3000',
   'http://localhost:3001',
   process.env.CLIENT_ORIGIN,
@@ -372,15 +372,39 @@ const io = new Server(server, {
   },
   transports: ['websocket', 'polling'], // Allow both transports
   allowEIO3: true, // Allow Engine.IO v3 clients for compatibility
+  // Render-specific optimizations for stability
+  pingInterval: 25000, // Send ping every 25 seconds (default is 25s, explicit for clarity)
+  pingTimeout: 60000, // Wait 60 seconds before considering connection dead (default is 20s, increased for Render)
+  upgradeTimeout: 10000, // Wait 10 seconds for transport upgrade (default is 10s)
+  maxHttpBufferSize: 1e6, // 1MB max buffer size
 });
 
 io.on("connection", (socket) => {
   const clientOrigin = socket.handshake.headers.origin || 'unknown';
   const clientAddress = socket.handshake.address || 'unknown';
-  console.log(`[SOCKET] ✅ New connection from ${clientOrigin}`);
-  console.log(`[SOCKET] Socket ID: ${socket.id}`);
-  console.log(`[SOCKET] Client address: ${clientAddress}`);
-  console.log(`[SOCKET] Transport: ${socket.conn.transport.name}`);
+  const userAgent = socket.handshake.headers['user-agent'] || 'unknown';
+  
+  console.log(`[SOCKET] ✅ New connection established`);
+  console.log(`[SOCKET]   Socket ID: ${socket.id}`);
+  console.log(`[SOCKET]   Origin: ${clientOrigin}`);
+  console.log(`[SOCKET]   Client address: ${clientAddress}`);
+  console.log(`[SOCKET]   Initial transport: ${socket.conn.transport.name}`);
+  console.log(`[SOCKET]   User-Agent: ${userAgent.substring(0, 80)}...`);
+
+  // Log transport upgrades (polling -> websocket)
+  socket.conn.on("upgrade", () => {
+    console.log(`[SOCKET] 🔄 Transport upgraded for ${socket.id}: ${socket.conn.transport.name}`);
+  });
+
+  // Log transport errors
+  socket.conn.on("error", (err) => {
+    console.error(`[SOCKET] ❌ Transport error for ${socket.id}:`, err.message);
+  });
+
+  // Log when client closes connection
+  socket.conn.on("close", (reason) => {
+    console.log(`[SOCKET] 🔌 Connection closed for ${socket.id}, reason: ${reason}`);
+  });
 
   function emitError(message) {
     socket.emit("room:error", { message });
@@ -468,15 +492,17 @@ io.on("connection", (socket) => {
   socket.on("disconnect", (reason) => {
     const code = removePlayerFromRooms(socket.id);
     if (code) {
+      console.log(`[SOCKET] 🚪 Player ${socket.id} left room ${code}`);
       io.to(code).emit("room:state", getRoomState(code));
     }
-    console.log(`[SOCKET] ❌ Disconnected ${socket.id}`);
-    console.log(`[SOCKET] Disconnect reason: ${reason}`);
+    console.log(`[SOCKET] ❌ Socket disconnected: ${socket.id}`);
+    console.log(`[SOCKET]   Reason: ${reason}`);
+    console.log(`[SOCKET]   Final transport: ${socket.conn.transport?.name || 'closed'}`);
   });
 
-  // Log connection errors
+  // Log socket-level errors
   socket.on("error", (error) => {
-    console.error(`[SOCKET] ❌ Error for socket ${socket.id}:`, error);
+    console.error(`[SOCKET] ❌ Socket error for ${socket.id}:`, error.message || error);
   });
 });
 

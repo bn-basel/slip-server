@@ -4,44 +4,68 @@ let socket: Socket | null = null;
 
 /**
  * Gets or creates a socket connection to the server.
- * Uses REACT_APP_SERVER_URL in production, localhost in development.
+ * For single-service deployment: uses window.location.origin if REACT_APP_SERVER_URL not set.
+ * For separate services: uses REACT_APP_SERVER_URL or localhost in development.
  */
 export function getSocket(): Socket {
   if (socket && socket.connected) return socket;
   
-  // Get server URL from environment variable (REQUIRED in production)
-  // In development, fallback to localhost:5001
-  const serverUrl = process.env.REACT_APP_SERVER_URL || 
-    (process.env.NODE_ENV === 'development' ? 'http://localhost:5001' : null);
+  // Determine server URL:
+  // 1. Use REACT_APP_SERVER_URL if set (explicit override)
+  // 2. In development, use localhost:5001
+  // 3. In production without REACT_APP_SERVER_URL, use same origin (single-service deployment)
+  let serverUrl: string | null = null;
   
+  if (process.env.REACT_APP_SERVER_URL) {
+    serverUrl = process.env.REACT_APP_SERVER_URL;
+  } else if (process.env.NODE_ENV === 'development') {
+    serverUrl = 'http://localhost:5001';
+  } else {
+    // Production single-service deployment: use same origin
+    serverUrl = window.location.origin;
+  }
+
   if (!serverUrl) {
-    console.error('[SOCKET] ERROR: REACT_APP_SERVER_URL environment variable is not set!');
-    throw new Error('REACT_APP_SERVER_URL is required for socket connection');
+    console.error('[SOCKET] ERROR: Could not determine server URL!');
+    throw new Error('Socket server URL could not be determined');
   }
 
   console.log('[SOCKET] Initializing connection to:', serverUrl);
   console.log('[SOCKET] Environment:', {
     NODE_ENV: process.env.NODE_ENV,
-    REACT_APP_SERVER_URL: process.env.REACT_APP_SERVER_URL,
-    windowOrigin: window.location.origin
+    REACT_APP_SERVER_URL: process.env.REACT_APP_SERVER_URL || '(not set, using same origin)',
+    windowOrigin: window.location.origin,
+    deploymentType: process.env.REACT_APP_SERVER_URL ? 'separate-services' : 'single-service'
   });
   
   // Create new socket connection
+  // Client automatically matches server pingInterval/pingTimeout
   socket = io(serverUrl, {
-    transports: ['websocket', 'polling'], // Allow fallback to polling if websocket fails
+    transports: ['websocket', 'polling'], // Try websocket first, fallback to polling
     withCredentials: true,
     autoConnect: true,
     reconnection: true,
     reconnectionAttempts: 10,
     reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
     timeout: 20000, // 20 second connection timeout
   });
 
   // Comprehensive logging for debugging
   socket.on('connect', () => {
-    console.log('[SOCKET] ✅ Connected successfully to:', serverUrl);
-    console.log('[SOCKET] Socket ID:', socket?.id);
-    console.log('[SOCKET] Transport:', socket?.io?.engine?.transport?.name || 'unknown');
+    const transport = socket?.io?.engine?.transport?.name || 'unknown';
+    console.log('[SOCKET] ✅ Connected successfully');
+    console.log('[SOCKET]   Server URL:', serverUrl);
+    console.log('[SOCKET]   Socket ID:', socket?.id);
+    console.log('[SOCKET]   Transport:', transport);
+    
+    // Log transport upgrade when it happens
+    if (socket?.io?.engine) {
+      socket.io.engine.on('upgrade', () => {
+        const newTransport = socket?.io?.engine?.transport?.name || 'unknown';
+        console.log('[SOCKET] 🔄 Transport upgraded to:', newTransport);
+      });
+    }
   });
 
   socket.on('disconnect', (reason) => {
