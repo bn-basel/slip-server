@@ -350,60 +350,91 @@ const socketIoAllowedOrigins = [
   'https://slip-server-1.onrender.com',
   'http://localhost:3000',
   'http://localhost:3001',
-  process.env.CLIENT_ORIGIN,
+  process.env.CLIENT_ORIGIN, // Allow custom origin from env
 ].filter(Boolean);
 
-console.log('[SERVER] Socket.IO allowed origins:', socketIoAllowedOrigins);
+console.log('[SERVER] ========== Socket.IO CORS Configuration ==========');
+console.log('[SERVER] Allowed origins:', socketIoAllowedOrigins);
+console.log('[SERVER] CLIENT_ORIGIN env:', process.env.CLIENT_ORIGIN || '(not set)');
+console.log('[SERVER] NODE_ENV:', process.env.NODE_ENV || 'development');
+console.log('[SERVER] ====================================================');
 
 // In production, use strict origin list; in development, allow all
 const socketIoOriginConfig = process.env.NODE_ENV === 'production' 
   ? socketIoAllowedOrigins 
   : (origin, callback) => {
       // In development, allow all origins for easier testing
+      console.log('[SERVER] Socket.IO: Development mode allowing origin', origin);
       callback(null, true);
     };
 
 const io = new Server(server, {
   cors: {
     origin: socketIoOriginConfig,
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST"], // Socket.IO uses GET for polling, POST for websocket
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization'],
   },
-  transports: ['websocket', 'polling'], // Allow both transports
+  // CRITICAL: Allow both transports - polling starts first, then upgrades to websocket
+  transports: ['polling', 'websocket'],
   allowEIO3: true, // Allow Engine.IO v3 clients for compatibility
   // Render-specific optimizations for stability
-  pingInterval: 25000, // Send ping every 25 seconds (default is 25s, explicit for clarity)
-  pingTimeout: 60000, // Wait 60 seconds before considering connection dead (default is 20s, increased for Render)
-  upgradeTimeout: 10000, // Wait 10 seconds for transport upgrade (default is 10s)
+  pingInterval: 25000, // Send ping every 25 seconds
+  pingTimeout: 60000, // Wait 60 seconds before considering connection dead (increased for Render)
+  upgradeTimeout: 10000, // Wait 10 seconds for transport upgrade
   maxHttpBufferSize: 1e6, // 1MB max buffer size
+  // Allow connection upgrades (polling -> websocket)
+  allowUpgrades: true,
 });
+
+console.log('[SERVER] Socket.IO server initialized with transports: ["polling", "websocket"]');
 
 io.on("connection", (socket) => {
   const clientOrigin = socket.handshake.headers.origin || 'unknown';
   const clientAddress = socket.handshake.address || 'unknown';
   const userAgent = socket.handshake.headers['user-agent'] || 'unknown';
   
-  console.log(`[SOCKET] ✅ New connection established`);
+  console.log(`[SOCKET] ✅ ========== NEW CONNECTION ==========`);
   console.log(`[SOCKET]   Socket ID: ${socket.id}`);
   console.log(`[SOCKET]   Origin: ${clientOrigin}`);
   console.log(`[SOCKET]   Client address: ${clientAddress}`);
   console.log(`[SOCKET]   Initial transport: ${socket.conn.transport.name}`);
   console.log(`[SOCKET]   User-Agent: ${userAgent.substring(0, 80)}...`);
+  console.log(`[SOCKET] ======================================`);
 
   // Log transport upgrades (polling -> websocket)
   socket.conn.on("upgrade", () => {
-    console.log(`[SOCKET] 🔄 Transport upgraded for ${socket.id}: ${socket.conn.transport.name}`);
+    console.log(`[SOCKET] 🔄 ========== TRANSPORT UPGRADE ==========`);
+    console.log(`[SOCKET]   Socket ID: ${socket.id}`);
+    console.log(`[SOCKET]   Upgraded to: ${socket.conn.transport.name}`);
+    console.log(`[SOCKET] ==========================================`);
   });
 
-  // Log transport errors
+  // Log transport errors with full details
   socket.conn.on("error", (err) => {
-    console.error(`[SOCKET] ❌ Transport error for ${socket.id}:`, err.message);
+    console.error(`[SOCKET] ❌ ========== TRANSPORT ERROR ==========`);
+    console.error(`[SOCKET]   Socket ID: ${socket.id}`);
+    console.error(`[SOCKET]   Error:`, err.message || err);
+    console.error(`[SOCKET]   Transport: ${socket.conn.transport?.name || 'unknown'}`);
+    console.error(`[SOCKET]   Origin: ${clientOrigin}`);
+    console.error(`[SOCKET] =========================================`);
   });
 
   // Log when client closes connection
   socket.conn.on("close", (reason) => {
-    console.log(`[SOCKET] 🔌 Connection closed for ${socket.id}, reason: ${reason}`);
+    console.log(`[SOCKET] 🔌 Connection closed for ${socket.id}`);
+    console.log(`[SOCKET]   Reason: ${reason}`);
+    console.log(`[SOCKET]   Final transport: ${socket.conn.transport?.name || 'closed'}`);
+  });
+  
+  // Log upgrade errors (if websocket upgrade fails, polling continues)
+  socket.conn.on("upgradeError", (err) => {
+    console.warn(`[SOCKET] ⚠️ ========== UPGRADE FAILED ==========`);
+    console.warn(`[SOCKET]   Socket ID: ${socket.id}`);
+    console.warn(`[SOCKET]   Error:`, err.message || err);
+    console.warn(`[SOCKET]   Staying on polling transport`);
+    console.warn(`[SOCKET]   This is OK - connection will continue to work`);
+    console.warn(`[SOCKET] =====================================`);
   });
 
   function emitError(message) {
@@ -518,13 +549,13 @@ app.get("*", (req, res) => {
 
 const PORT = process.env.PORT || 5001;
 server.listen(PORT, () => {
+  console.log(`✅ ========== Server Started ==========`);
   console.log(`✅ Slip Game server running on port ${PORT}`);
   console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 Client Origin: ${process.env.CLIENT_ORIGIN || 'Not set (using defaults)'}`);
-  console.log(
-    `🔑 OpenAI API Key: ${
-      process.env.OPENAI_API_KEY ? "Configured" : "Not Configured (mock mode)"
-    }`
-  );
-  console.log(`📡 Socket.IO server ready for connections`);
+  console.log(`🔗 CLIENT_ORIGIN env: ${process.env.CLIENT_ORIGIN || 'Not set (using defaults)'}`);
+  console.log(`📡 Socket.IO transports: polling (default), websocket (upgrade)`);
+  console.log(`🔑 OpenAI API Key: ${process.env.OPENAI_API_KEY ? "Configured" : "Not Configured (mock mode)"}`);
+  console.log(`✅ ===================================`);
+  console.log(`✅ Ready to accept Socket.IO connections`);
+  console.log(`✅ Expected origin: https://slip-server-1.onrender.com`);
 });
